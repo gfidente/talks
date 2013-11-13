@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>OpenStack as GNU/Linux</title>
+    <meta name="author" content="Giulio Fidente">
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="css/reveal.min.css">
+    <link rel="stylesheet" href="css/theme/default.css" id="theme">
+    <!-- For syntax highlighting -->
+    <link rel="stylesheet" href="lib/css/zenburn.css">
+    <!--[if lt IE 9]>
+    <script src="lib/js/html5shiv.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+
+    <!-- HERE WHAT MATTERS -->
+    <div class="reveal">
+      <div class="slides">
+	<section>
+          <p><small>LinuxDay 2013</small></p>
+	  <h1>OpenStack</h1>
+          <h3>as GNU/Linux</h3>
+	</section>
+	<section>
+	  <h2>the Project</h2>
+          <blockquote>A cloud operating system that controls large pools of compute, storage, and networking resources</blockquote>
+          <p>An IaaS platform, initially built to displace/replace Amazon AWS</p>
+	</section>
+	<section>
+	  <h2>10,000 feet view</h2>
+          <p>A collection of independent software packages</p>
+          <p>Distributed under Apache 2.0 license</p>
+          <p>Together offer a certain level of compatibility with the Amazon API but want to be more than that</p>
+	</section>
+        <section>
+          <h2>Stackalytics (havana)</h2>
+          <p>~127k lines of code (Python/Bash)</p>
+          <p>~1k developers (and I'm around 100 yay!)</p>
+          <p>Releases a "major" every 6 months</p>
+          <p>Amongst the contributors also Rackspace, Red Hat, HP, Nebula, IBM, Mirantis, VMware, ...</p>
+        </section>
+        <section>
+          <h2>the Core (havana)</h2>
+          <center><table>
+            <tr>
+              <td>Keystone</td>
+              <td>Auth/Identity</td>
+            </tr>
+            <tr>
+              <td>Nova</td>
+              <td>Compute</td>
+            </tr>
+            <tr>
+              <td>Glance</td>
+              <td>Image</td>
+            </tr>
+            <tr>
+              <td>Cinder</td>
+              <td>Volume</td>
+            </tr>
+            <tr>
+              <td>Neutron (ex. Quantum)</td>
+              <td>Network</td>
+            </tr>
+            <tr>
+              <td>Swift</td>
+              <td>Object Storage</td>
+            </tr>
+            <tr>
+              <td>Heat</td>
+              <td>Orchestration</td>
+            </tr>
+            <tr>
+              <td>Ceilometer</td>
+              <td>Metering</td>
+            </tr>
+            <tr>
+              <td>Horizon</td>
+              <td>Web UI</td>
+            </tr>
+            <tr>
+              <td>Tempest</td>
+              <td>Quality</td>
+            </tr>
+          </table></center>
+        </section>
+        <section data-background="#007777">
+          <h2>why OpenStack</h2>
+          <h5>(for developers)</h5>
+          <ul>
+            <li>SDN, SDS, ...</li>
+            <li>Scaling</li>
+            <li>Knowledge sharing</li>
+            <li>Trend (2x cloudstack)</li>
+            <li>Career opportunities</li>
+          </ul>
+        </section>
+        <section data-background="#4d7e65">
+          <h2>why OpenStack</h2>
+          <h5>(for sysadmins/devops)</h5>
+          <ul>
+            <li>OPex vs CAPex</li>
+            <li>Multitenancy</li>
+            <li>No Snowflakes</li>
+            <li>Scale <del>up</del> out</li>
+            <li>Career opportunities</li>
+          </ul>
+        </section>
+        <section data-background="#8c4738">
+          <h2>why OpenStack</h2>
+          <h5>(for users)</h5>
+          <ul>
+            <li>REST api (automation)</li>
+            <li>AWS Cloud Formations compatibility</li>
+            <li>Offer virtually unlimted resources</li>
+          </ul>
+        </section>
+        <section>
+          <h2>In addition to Core</h2>
+          <center><table>
+            <tr>
+              <td>Designate</td>
+              <td>DNS aaS</td>
+            </tr>
+            <tr>
+              <td>Trove</td>
+              <td>DB aaS</td>
+            </tr>
+            <tr>
+              <td>Marconi</td>
+              <td>Notification e Messaging aaS</td>
+            </tr>
+            <tr>
+              <td>Ironic</td>
+              <td>Bare metal provisioning</td>
+            </tr>
+          </table></center>
+        </section>
+        <section>
+          <h2>Where to start?</h2>
+          <ul>
+            <li>Havana &rarr; Icehouse</li>
+            <li>RDO, Devstack</li>
+            <li>docs.openstack.org, lists.openstack.org</li>
+            <li>#openstack-{,dev,qa} freenode</li>
+          </ul>
+        </section>
+        <section>
+          <h2>Questions?</h2>
+          <p><small>Giulio Fidente @ Red Hat</small></p>
+          <p><small>IRC: giulivo | Email: giulio@giuliofidente.com</small></p>
+        </section>
+      </div>
+    </div>
+
+    <script src="lib/js/head.min.js"></script>
+    <script src="js/reveal.min.js"></script>
+    <script>
+      Reveal.initialize({
+        transition: 'linear',
+      });
+    </script>
+  </body>
+</html>
