@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>On OpenStack, Ceph and TripleO</title>
+    <meta name="author" content="Giulio Fidente">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+    <link rel="stylesheet" href="css/reveal.css">
+    <link rel="stylesheet" href="css/theme/night.css" id="theme">
+    <!-- For syntax highlighting -->
+    <link rel="stylesheet" href="lib/css/zenburn.css">
+    <script>
+      var link = document.createElement( 'link' );
+      link.rel = 'stylesheet';
+      link.type = 'text/css';
+      link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+      document.getElementsByTagName( 'head' )[0].appendChild( link );
+    </script>
+    <!--[if lt IE 9]>
+    <script src="lib/js/html5shiv.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+
+    <!-- HERE WHAT MATTERS -->
+    <div class="reveal">
+      <div class="slides">
+	<section>
+          <p><small>OpenStack and Ceph User Group </small></p>
+	  <h1>On OpenStack, Ceph and TripleO</h1>
+          <h3>(more about the latter)</h3>
+	</section>
+	<section>
+	  <h2>What is TripleO</h2>
+          <p>The OpenStack deployment program, described as:</p>
+          <blockquote>A program aimed at installing, upgrading and operating OpenStack clouds using OpenStack's own cloud facilities as the foundations.</blockquote>
+	</section>
+	<section>
+	  <h2>How it works</h2>
+          <ol>
+            <li>Uses diskimage-builder to build some images with OpenStack pre-installed (does not do any configuration)</li>
+            <li>Spawns some all-in-one management system (the Undercloud) with Heat and Ironic</li>
+            <li>Collects the informations about the type, number (and more) of your baremetal nodes (discoverd)</li>
+            <li>Uses Heat and Ironic to deploy (and scale) a production cloud (the Overlcloud), configured using Puppet</li>
+          </ol>
+        </section>
+        <section data-background="#8c4738">
+          <h2>Puppet you said?</h2>
+          <p>Nodes are profiled using Heat<p>
+          <pre><code>
+              Controller:
+                type: OS::Heat::ResourceGroup
+                properties:
+                  count: {get_param: ControllerCount}
+                  resource_def:
+                    type: OS::TripleO::Controller
+                    properties:
+                      AdminPassword: {get_param: AdminPassword}
+                      CeilometerBackend: {get_param: CeilometerBackend}
+                      ...
+          </code></pre>
+          <p>To each role/node, together with some params, is provided a manifest</p>
+          <pre><code>
+              $controller_node_ips = split(hiera('controller_node_ips'), ',')
+              class { '::tripleo::loadbalancer' :
+                controller_hosts => $controller_node_ips,
+                manage_vip       => $enable_keepalived,
+              }
+              ...
+          </code></pre>
+        </section>
+        <section data-background="#8c4738">
+          <h2>Some magic happens in Heat</h2>
+          <p>Many param values are dynamic</p>
+          <pre><code>
+              ceph_mon_ips: {get_attr: [Controller, ip_address]}
+          </code></pre>
+          <pre><code>
+              ceph::profile::params::mon_host:
+              list_join:
+              - ','
+              - {get_param: ceph_mon_ips}
+              ceph::profile::params::fsid: {get_param: ceph_fsid}
+              ceph::profile::params::mon_key: {get_param: ceph_mon_key}
+              ...
+          </code></pre>
+	</section>
+        <section data-background="#007777">
+          <h2>Final stages</h2>
+          <p>Heat userdata is turned into Puppet hieradata on the nodes<p>
+          <pre><code>
+              ceph::profile::params::fsid: 4b5c8c0a-ff60-454b-a1b4-9747aa737d19
+              ceph::profile::params::mon_host: 192.0.2.4
+              ceph::profile::params::mon_key: AQC+Ox1VmEr3BxAALZejqeHj50Nj6wJDvs96OQ==
+          </code></pre>
+          <ol>
+            <li>Nodes pulled userdata and manifest from Heat and runned <code>puppet apply</code></li>
+            <li>Heat orchestrated dependencies</li>
+            <li>When finished, Heat returns <code>CREATE_COMPLETE</code></li>
+          </ol>
+        </section>
+        <section data-background="#4d7e65">
+          <h2>And there is your Overcloud</h2>
+          <h5>(with Ceph)</h5>
+          <pre><code>
+              [tripleo@host13 ~]$ heat stack-list
+              +--------------------------------------+------------+-----------------+----------------------+
+              | id                                   | stack_name | stack_status    | creation_time        |
+              +--------------------------------------+------------+-----------------+----------------------+
+              | a7ea48b6-0db3-4134-9e67-2470b2f3c63d | overcloud  | CREATE_COMPLETE | 2015-04-29T15:56:57Z |
+              +--------------------------------------+------------+-----------------+----------------------+
+              [tripleo@host13 ~]$ nova list
+              +--------------------------------------+-------------------------------------------------------+--------+------------+-------------+---------------------+
+              | ID                                   | Name                                                  | Status | Task State | Power State | Networks            |
+              +--------------------------------------+-------------------------------------------------------+--------+------------+-------------+---------------------+
+              | 6440519d-df49-4e1a-b0b2-e9bd9fbf2b17 | ov-epbfx6c4wwe-0-rrhwidz7tp5u-Controller-vpfgkaeh2mf3 | ACTIVE | -          | Running     | ctlplane=192.0.2.10 |
+              | 431685b0-28f0-4985-9d83-212581adaf79 | ov-gelp2y7efh-0-o7r74frmhin6-CephStorage-nzakdfnutroc | ACTIVE | -          | Running     | ctlplane=192.0.2.8  |
+              | f1b8877f-3cfc-4a65-bf58-4a0d44c686a7 | ov-wjfsslt45x-0-wboy7rphtmwk-NovaCompute-va4tflrfiebs | ACTIVE | -          | Running     | ctlplane=192.0.2.9  |
+              +--------------------------------------+-------------------------------------------------------+--------+------------+-------------+---------------------+
+              [tripleo@host13 ~]$ ssh heat-admin@192.0.2.10
+              Warning: Permanently added '192.0.2.10' (ECDSA) to the list of known hosts.
+              Last login: Wed Apr 29 16:18:23 2015 from 192.168.122.1
+              [heat-admin@ov-epbfx6c4wwe-0-rrhwidz7tp5u-controller-vpfgkaeh2mf3 ~]$ sudo -i
+              [root@ov-epbfx6c4wwe-0-rrhwidz7tp5u-controller-vpfgkaeh2mf3 ~]# ceph -s
+              cluster 4b5c8c0a-ff60-454b-a1b4-9747aa737d19
+              health HEALTH_WARN 320 pgs degraded; 320 pgs stuck unclean; mon.ov-epbfx6c4wwe-0-rrhwidz7tp5u-controller-vpfgkaeh2mf3 low disk space
+              monmap e1: 1 mons at {ov-epbfx6c4wwe-0-rrhwidz7tp5u-controller-vpfgkaeh2mf3=192.0.2.10:6789/0}, election epoch 2, quorum 0 ov-epbfx6c4wwe-0-rrhwidz7tp5u-controller-vpfgkaeh2mf3
+              osdmap e7: 1 osds: 1 up, 1 in
+              pgmap v9: 320 pgs, 5 pools, 0 bytes data, 0 objects
+              6695 MB used, 3320 MB / 10506 MB avail
+              320 active+degraded
+              [root@ov-epbfx6c4wwe-0-rrhwidz7tp5u-controller-vpfgkaeh2mf3 ~]# # Victory \o/
+        </code></pre>
+        </section>
+        <section>
+          <h2>For more Ceph fun</h2>
+          <p>One can imagine unlimited config settings or topologies but...<p>
+          <ul>
+            <li>CinderEnableRbdBackend / CinderEnableIscsiBackend</li>
+            <li>NovaEnableRbdBackend</li>
+            <li>GlanceBackend</li>
+          </ul>
+          <p>... more can be added</p>
+        </section>
+        <section>
+          <h2>For more TripleO fun</h2>
+          <p>What about those who prefer Salt or Chef to Puppet?</p>
+          <ul>
+            <li>tripleo-image-elements and tripleo-puppet-elements</li>
+            <li>os-collect-config</li>
+            <li>hook-puppet.py</li>
+          </ul>
+        </section>
+        <section data-background="#8c4738">
+          <h2>One of the many entry points</h2>
+          <pre><code>
+              ceph::profile::params::osd_journal_size: 1024
+              ceph::profile::params::osd_pool_default_pg_num: 128
+              ceph::profile::params::osd_pool_default_pgp_num: 128
+              ceph::profile::params::osd_pool_default_size: 3
+              ceph::profile::params::osd_pool_default_min_size: 1
+              ceph::profile::params::authentication_type: cephx
+          </code></pre>
+        </section>
+        <section>
+          <h2>Future?</h2>
+          <ul>
+            <li>Pacemaker</li>
+            <li>Multiple Networks</li>
+            <li>Tuskar</li>
+            <li>Calamari?</li>
+          </ul>
+        </section>
+        <section>
+          <h2>Questions?</h2>
+          <p><small>Giulio Fidente @ Red Hat</small></p>
+          <p><small>gfidente @ freenode</small></p>
+          <p><small>Kudos to Dan Prince and Yanis Guenane</small></p>
+        </section>
+      </div>
+    </div>
+
+    <script src="lib/js/head.min.js"></script>
+    <script src="js/reveal.js"></script>
+    <script>
+      Reveal.initialize({
+        transition: 'linear',
+      });
+    </script>
+  </body>
+</html>
