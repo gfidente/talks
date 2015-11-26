@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>OpenStack On OpenStack, TripleO reality check</title>
+    <meta name="author" content="Giulio Fidente">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+    <link rel="stylesheet" href="css/reveal.css">
+    <link rel="stylesheet" href="css/theme/night.css" id="theme">
+    <!-- For syntax highlighting -->
+    <link rel="stylesheet" href="lib/css/zenburn.css">
+    <script>
+      var link = document.createElement( 'link' );
+      link.rel = 'stylesheet';
+      link.type = 'text/css';
+      link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+      document.getElementsByTagName( 'head' )[0].appendChild( link );
+    </script>
+    <!--[if lt IE 9]>
+    <script src="lib/js/html5shiv.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+
+    <!-- HERE WHAT MATTERS -->
+    <div class="reveal">
+      <div class="slides">
+	<section>
+          <p><small>OpenStack User Group Italia</small></p>
+	  <h1>OpenStack On OpenStack</h1>
+          <h3>TripleO reality check</h3>
+	</section>
+	<section>
+	  <h2>TripleO</h2>
+          <p>A management cloud and a production cloud</p>
+          <p>Undercloud and Overcloud</p>
+          <blockquote>A program aimed at installing, upgrading and operating OpenStack clouds using OpenStack's own cloud facilities as the foundations.</blockquote>
+	</section>
+	<section data-background="#007777">
+	  <h2>Undercloud</h2>
+          <p>Any OpenStack deployment which provides Heat, Nova, Glance, Neutron, Ironic</p>
+          <p>Is used to deploy, update, scale up or down, delete and redeploy the Overcloud, on baremetal nodes or on VMs, as if these were local resources</p>
+          <p>Instack can deploy the Undercloud as an AllInOne, on baremetal or on a VM</p>
+          <p><small>Will (in the future) do Heat autoscaling and Mistral workflows</small></p>
+        </section>
+	<section data-background="#8c4738">
+	  <h2>Overcloud deployment process</h2>
+          <p><small>Heat logic provides Hiera data for Puppet</small></p>
+          <ol>
+            <li>Heat demands creation of the basic resources (servers, networks)</li>
+            <li>Nova (and Ironic) deploy unconfigured images on baremetal or virtual nodes</li>
+            <li>On call-back, Heat unlocks different metadata per server/role</li>
+            <li>Metadata containts Puppet manifests and Hiera data</li>
+            <li>A local Puppet apply configures the node; on success receives further data</li>
+          </ol>
+          <p><small>Both the Hiera data and the manifest can be edited and reapplied via Heat update</small></p>
+        </section>
+	<section data-background="#8c4738">
+	  <h2>Overcloud</h2>
+          <p>Controller/Compute/Ceph/Cinder/Swift roles</p>
+          <p>Can do HA (with Pacemaker)</p>
+          <p>Can do Ceph (managed or external)</p>
+          <p>Can do network isolation (also on IPv6)</p>
+          <p>Can be upgraded (only in between minors for now)</p>
+          <p>Configured by Puppet (Hiera)</p>
+          <p>Is very hackable (Hiera, Puppet manifests, Shell scripts)</p>
+        </section>
+        <section>
+	  <h2>How I set up the demo</h2>
+          <ol>
+            <li>Used Instack to create 4 VMs on a single baremetal</li>
+            <li>Installed an AllInOne Undercloud on the first VM</li>
+            <li>Built the Overcloud images</li>
+            <li>Registered the remaining 3 VMs in Ironic</li>
+            <li>Deployed an Overcloud made up of 3 nodes</li>
+          </ol>
+          <p><small>Docs are at <a href="http://tripleo.org">tripleo.org</a></small></p>
+        </section>
+        <section>
+          <h2>tripleo.sh</h2>
+          <pre><code>
+              Automates TripleO setup steps.
+
+              Options:
+              --repo-setup         -- Perform repository setup.
+              --delorean-setup     -- Install local delorean build environment.
+              --delorean-build     -- Build a delorean package locally
+              --undercloud         -- Install the undercloud.
+              --overcloud-images   -- Build and load overcloud images.
+              --register-nodes     -- Register and configure nodes.
+              --introspect-nodes   -- Introspect nodes.
+              --flavors            -- Create flavors for deployment.
+              --overcloud-deploy   -- Deploy an overcloud.
+              --use-containers     -- Use a containerized compute node.
+              --all, -a            -- Run all of the above commands.
+              -x                   -- enable tracing
+              --help, -h           -- Print this help message.
+          </code></pre>
+          <p><small>Not in the docs, you should checkout <a href="https://github.com/openstack/tripleo-common">tripleo-common</a></small></p>
+        </section>
+        <section>
+          <h2>Demo configuration params</h2>
+          <pre><code>
+            parameter_defaults:
+              ControlPlaneSubnetCidr: "24"
+              ControlPlaneDefaultRoute: 192.0.2.1
+              EC2MetadataIp: 192.0.2.1
+              ExternalInterfaceDefaultRoute: 172.16.10.251
+              ExternalNetCidr: 172.16.10.0/24
+              ExternalAllocationPools: [{'start': '172.16.10.4', 'end': '172.16.10.99'}]
+              DnsServers: ['8.8.8.8']
+          </code></pre>
+          <pre><code>
+            $ more ceph.yaml
+            ceph::profile::params::osd_journal_size: 1024
+            ceph::profile::params::osd_pool_default_pg_num: 32
+            ceph::profile::params::osd_pool_default_pgp_num: 32
+            ceph::profile::params::osd_pool_default_size: 3
+            ceph::profile::params::osd_pool_default_min_size: 1
+            ceph::profile::params::osds: {/srv/data: {}}
+            ceph::profile::params::manage_repo: false
+            ceph::profile::params::authentication_type: cephx
+          </code></pre>
+        </section>
+        <section>
+          <h2>Future?</h2>
+          <ul>
+            <p>Composable roles</li>
+            <p>Deploy all roles in containers</li>
+            <p>Overcloud guests HA</li>
+            <p>A friendly UI</li>
+          </ul>
+        </section>
+        <section>
+          <h2>Questions?</h2>
+          <p><small>Giulio Fidente @ Red Hat</small></li>
+          <p><small>IRC: gfidente</small></li>
+        </section>
+      </div>
+    </div>
+
+    <script src="lib/js/head.min.js"></script>
+    <script src="js/reveal.js"></script>
+    <script>
+      Reveal.initialize({
+        transition: 'linear',
+      });
+    </script>
+  </body>
+</html>
